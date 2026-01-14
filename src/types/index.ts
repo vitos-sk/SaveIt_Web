@@ -28,6 +28,8 @@ export interface Memory {
   mediaType?: string;
   mediaUrl?: string;
   mediaFileId?: string;
+  openTelegramUrl?: string;
+  deepUrl?: string;
   remindAt?: string;
   url?: string;
   content_type?: string;

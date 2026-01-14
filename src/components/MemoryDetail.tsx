@@ -179,7 +179,6 @@ const DateText = styled.span`
   -moz-osx-font-smoothing: grayscale;
 `;
 
-// Иконки без фона/обводок (как просил)
 const IconButton = styled.button<{ $variant?: "danger" }>`
   background: transparent;
   border: none;
@@ -240,8 +239,6 @@ const UrlText = styled.div`
   -moz-osx-font-smoothing: grayscale;
 `;
 
-// (нижние Actions убраны — кнопки перенесены наверх)
-
 const CloseButton = styled.button`
   background: transparent;
   border: none;
@@ -277,23 +274,18 @@ export function MemoryDetail({ memory, onClose, onDelete }: MemoryDetailProps) {
     setIsDeleting(false);
   };
 
-  // Блокируем скролл body когда открыт MemoryDetail
   useEffect(() => {
     if (memory) {
-      // Сохраняем текущую позицию скролла
       const scrollY = window.scrollY;
-      // Блокируем скролл
       document.body.style.position = "fixed";
       document.body.style.top = `-${scrollY}px`;
       document.body.style.width = "100%";
       document.body.style.overflow = "hidden";
-      // Блокируем скролл на уровне html
       document.documentElement.style.overflow = "hidden";
       document.documentElement.style.position = "fixed";
       document.documentElement.style.width = "100%";
 
       return () => {
-        // Восстанавливаем скролл при закрытии
         document.body.style.position = "";
         document.body.style.top = "";
         document.body.style.width = "";
@@ -308,9 +300,7 @@ export function MemoryDetail({ memory, onClose, onDelete }: MemoryDetailProps) {
 
   if (!memory) return null;
 
-  // Обработчики для верхней части (DragHandle + Header) - свайп для закрытия
   const handleHeaderTouchStart = (e: React.TouchEvent) => {
-    // Если тапаем по кнопкам (Open/Delete/Close) — не начинаем drag (иначе клики не сработают)
     const target = e.target as HTMLElement;
     if (target.closest("button")) return;
 
@@ -324,7 +314,6 @@ export function MemoryDetail({ memory, onClose, onDelete }: MemoryDetailProps) {
     const touch = e.touches[0];
     const deltaY = touch.clientY - dragStartY;
     if (deltaY > 0) {
-      // Предотвращаем скролл только когда реально тянем вниз
       e.preventDefault();
       setDragY(deltaY);
     }
@@ -332,7 +321,6 @@ export function MemoryDetail({ memory, onClose, onDelete }: MemoryDetailProps) {
 
   const handleHeaderTouchEnd = () => {
     if (dragY > 100) {
-      // Если свайпнули больше 100px, закрываем
       onClose();
     }
     setIsDragging(false);
@@ -368,8 +356,15 @@ export function MemoryDetail({ memory, onClose, onDelete }: MemoryDetailProps) {
   };
 
   const handleOpenInTelegram = () => {
-    // Mini App должен открываться внутри Telegram
     if (!window.Telegram?.WebApp) {
+      // Fallback для проверки/работы в обычном браузере (вне Telegram):
+      // откроем web-ссылку в новой вкладке, если она есть.
+      const candidate = (memory.openTelegramUrl || memory.url || "").trim();
+      if (candidate) {
+        const w = window.open(candidate, "_blank", "noopener,noreferrer");
+        if (w) return;
+      }
+
       setErrorText("Откройте приложение внутри Telegram");
       setIsErrorOpen(true);
       return;
@@ -377,44 +372,93 @@ export function MemoryDetail({ memory, onClose, onDelete }: MemoryDetailProps) {
 
     const tg = window.Telegram.WebApp as any;
 
-    // Новая структура: открываем конкретное сообщение по chatId + messageId
+    const internalChatIdFrom = (chatId: number | string): string => {
+      const raw = String(chatId).replace(/^-/, "");
+      return raw.startsWith("100") ? raw.slice(3) : raw;
+    };
+
+    const toTelegramWebUrl = (url: string): string | null => {
+      if (/^https?:\/\/t\.me\//i.test(url)) {
+        return url.replace(/^http:\/\//i, "https://");
+      }
+
+      if (!/^tg:\/\//i.test(url)) return null;
+
+      try {
+        const u = new URL(url);
+        const host = (u.host || "").toLowerCase();
+        const p = u.searchParams;
+
+        if (host === "resolve") {
+          const domain = p.get("domain");
+          const post = p.get("post") || p.get("message");
+          if (domain && post) return `https://t.me/${domain}/${post}`;
+        }
+
+        if (host === "privatepost") {
+          const chat = p.get("chat");
+          const post = p.get("post");
+          if (chat && post) {
+            const internal = internalChatIdFrom(chat);
+            return `https://t.me/c/${internal}/${post}`;
+          }
+        }
+      } catch {}
+
+      return null;
+    };
+
+    const openTelegramLink = (link: string) => {
+      if (typeof tg.openTelegramLink === "function") {
+        tg.openTelegramLink(link);
+        return true;
+      }
+      if (typeof tg.openLink === "function") {
+        tg.openLink(link, { try_instant_view: false });
+        return true;
+      }
+      return false;
+    };
+
+    const openExternalLink = (link: string) => {
+      if (typeof tg.openLink === "function") {
+        tg.openLink(link, { try_instant_view: false });
+        return true;
+      }
+      return false;
+    };
+
+    if (typeof memory.openTelegramUrl === "string" && memory.openTelegramUrl.trim()) {
+      const web = toTelegramWebUrl(memory.openTelegramUrl) || memory.openTelegramUrl;
+      if (openTelegramLink(web)) return;
+    }
+
     const chatId = memory.chatId;
     const messageId = memory.messageId;
     if (typeof chatId === "number" && typeof messageId === "number") {
-      // Каналы/группы: https://t.me/c/<internalId>/<messageId>
       if (chatId < 0) {
-        const abs = Math.abs(chatId).toString();
-        const clean = abs.startsWith("100") ? abs.slice(3) : abs;
+        const clean = internalChatIdFrom(chatId);
         const link = `https://t.me/c/${clean}/${messageId}`;
-        if (typeof tg.openTelegramLink === "function") {
-          tg.openTelegramLink(link);
-          return;
-        }
-        if (typeof tg.openLink === "function") {
-          tg.openLink(link);
-          return;
-        }
+        if (openTelegramLink(link)) return;
       } else {
-        // Приватные: tg://privatepost?chat=<chatId>&post=<messageId>
         const deep = `tg://privatepost?chat=${chatId}&post=${messageId}`;
-        if (typeof tg.openTelegramLink === "function") {
-          tg.openTelegramLink(deep);
-          return;
-        }
-        if (typeof tg.openLink === "function") {
-          tg.openLink(deep);
-          return;
-        }
+        if (openExternalLink(deep)) return;
+
+        const userDeep = `tg://user?id=${chatId}`;
+        if (openExternalLink(userDeep)) return;
       }
     }
 
-    // fallback: если есть url (для link-типа)
-    if (memory.url && typeof tg.openLink === "function") {
-      tg.openLink(memory.url, { try_instant_view: false });
-      return;
+    if (typeof memory.url === "string" && memory.url.trim()) {
+      const maybeTelegramWeb = toTelegramWebUrl(memory.url);
+      if (maybeTelegramWeb && openTelegramLink(maybeTelegramWeb)) return;
+      if (/^https?:\/\//i.test(memory.url) && openExternalLink(memory.url)) return;
+      if (/^tg:\/\//i.test(memory.url) && openExternalLink(memory.url)) return;
     }
 
-    setErrorText("Нет данных для открытия (chatId/messageId)");
+    setErrorText(
+      "Не удалось открыть. Для каналов/групп нужна openTelegramUrl или (chatId<0 + messageId). Для приватных чатов Telegram не даёт ссылку на конкретное сообщение."
+    );
     setIsErrorOpen(true);
   };
 
@@ -493,7 +537,7 @@ export function MemoryDetail({ memory, onClose, onDelete }: MemoryDetailProps) {
         </Header>
         <Body>
           {memory.title && <Title>{memory.title}</Title>}
-          <UrlText>{memory.url || memory.content}</UrlText>
+          <UrlText>{memory.openTelegramUrl || memory.url || memory.content}</UrlText>
         </Body>
       </Content>
 

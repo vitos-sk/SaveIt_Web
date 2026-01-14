@@ -1,4 +1,4 @@
-import { useRef, useEffect } from "react";
+import { useRef, useEffect, useLayoutEffect, useState, useCallback } from "react";
 import styled from "styled-components";
 
 export type MemoryType =
@@ -22,37 +22,72 @@ const typeBorderColors: Record<MemoryType, string> = {
   fun: "rgba(255, 152, 0, 0.6)",
 };
 
-const Container = styled.div`
+const Bar = styled.div`
   display: flex;
-  gap: 8px;
-  padding: 10px 14px;
-  margin: 12px;
+  padding: 6px 10px;
+  margin: 10px 12px;
   background: rgba(57, 56, 56, 0.3);
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
   border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 18px;
+  border-radius: 16px;
+  position: fixed;
+  top: 80px;
+  left: 0;
+  right: 0;
+  z-index: 99;
+`;
+
+const Scroll = styled.div`
+  flex: 1;
   overflow-x: auto;
   overflow-y: hidden;
   scrollbar-width: none;
   -ms-overflow-style: none;
-  position: fixed;
-  top: 85px;
-  left: 0;
-  right: 0;
-  z-index: 99;
+  -webkit-overflow-scrolling: touch;
 
   &::-webkit-scrollbar {
     display: none;
   }
 `;
 
+const Track = styled.div`
+  position: relative;
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  width: max-content;
+  min-width: 100%;
+  padding: 2px 2px;
+`;
+
+const ActivePill = styled.div<{ $x: number; $w: number; $visible: boolean }>`
+  position: absolute;
+  top: 1px;
+  bottom: 1px;
+  left: 0;
+  width: ${(p) => p.$w}px;
+  transform: translateX(${(p) => p.$x}px);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.12);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.25);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  opacity: ${(p) => (p.$visible ? 1 : 0)};
+  transition: transform 240ms cubic-bezier(0.2, 0.9, 0.2, 1),
+    width 240ms cubic-bezier(0.2, 0.9, 0.2, 1), opacity 160ms ease-out;
+  will-change: transform, width, opacity;
+  pointer-events: none;
+  z-index: 0;
+`;
+
 const FilterButton = styled.button<{ $active: boolean }>`
   background: transparent;
   border: none;
-  padding: 7px 14px;
+  padding: 6px 12px;
   color: #ffffff;
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 500;
   cursor: pointer;
   white-space: nowrap;
@@ -62,6 +97,8 @@ const FilterButton = styled.button<{ $active: boolean }>`
   display: flex;
   align-items: center;
   gap: 8px;
+  position: relative;
+  z-index: 1;
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Roboto", "Oxygen", "Ubuntu",
     "Cantarell", "Fira Sans", "Droid Sans", "Helvetica Neue", sans-serif;
   -webkit-font-smoothing: antialiased;
@@ -77,8 +114,8 @@ const FilterButton = styled.button<{ $active: boolean }>`
 `;
 
 const Dot = styled.span<{ color: string }>`
-  width: 5px;
-  height: 5px;
+  width: 4px;
+  height: 4px;
   border-radius: 50%;
   background: ${(props) => props.color};
   flex-shrink: 0;
@@ -118,39 +155,75 @@ interface FilterBarProps {
 }
 
 export function FilterBar({ filter, onFilterChange, counts }: FilterBarProps) {
-  const containerRef = useRef<HTMLDivElement>(null);
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const trackRef = useRef<HTMLDivElement>(null);
+  const [pill, setPill] = useState<{ x: number; w: number; visible: boolean }>({
+    x: 0,
+    w: 0,
+    visible: false,
+  });
+
+  const updatePill = useCallback(() => {
+    const track = trackRef.current;
+    if (!track) return;
+    const activeButton = track.querySelector(
+      `button[data-active="true"]`
+    ) as HTMLElement | null;
+    if (!activeButton) return;
+
+    // offsetLeft/Width are relative to the offsetParent (Track), perfect for our pill positioning.
+    const x = activeButton.offsetLeft;
+    const w = activeButton.offsetWidth;
+    setPill({ x, w, visible: true });
+  }, []);
 
   useEffect(() => {
-    if (containerRef.current) {
-      const activeButton = containerRef.current.querySelector(
-        `button[data-active="true"]`
-      ) as HTMLElement;
-      if (activeButton) {
-        activeButton.scrollIntoView({
-          behavior: "smooth",
-          block: "nearest",
-          inline: "center",
-        });
-      }
-    }
+    const track = trackRef.current;
+    if (!track) return;
+    const activeButton = track.querySelector(
+      `button[data-active="true"]`
+    ) as HTMLElement | null;
+    if (!activeButton) return;
+
+    activeButton.scrollIntoView({
+      behavior: "smooth",
+      block: "nearest",
+      inline: "center",
+    });
   }, [filter]);
 
+  useLayoutEffect(() => {
+    updatePill();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filter, counts]);
+
+  useEffect(() => {
+    const onResize = () => updatePill();
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, [updatePill]);
+
   return (
-    <Container ref={containerRef}>
-      {filters.map(({ value, label }) => (
-        <FilterButton
-          key={value}
-          $active={filter === value}
-          data-active={filter === value}
-          onClick={() => onFilterChange(value)}
-        >
-          {value !== "all" && <Dot color={typeBorderColors[value as MemoryType]} />}
-          {label}
-          {!!counts?.[value] && counts[value]! > 0 && (
-            <CountBadge>{counts[value]}</CountBadge>
-          )}
-        </FilterButton>
-      ))}
-    </Container>
+    <Bar>
+      <Scroll ref={scrollRef}>
+        <Track ref={trackRef}>
+          <ActivePill $x={pill.x} $w={pill.w} $visible={pill.visible} />
+          {filters.map(({ value, label }) => (
+            <FilterButton
+              key={value}
+              $active={filter === value}
+              data-active={filter === value}
+              onClick={() => onFilterChange(value)}
+            >
+              {value !== "all" && <Dot color={typeBorderColors[value as MemoryType]} />}
+              {label}
+              {!!counts?.[value] && counts[value]! > 0 && (
+                <CountBadge>{counts[value]}</CountBadge>
+              )}
+            </FilterButton>
+          ))}
+        </Track>
+      </Scroll>
+    </Bar>
   );
 }

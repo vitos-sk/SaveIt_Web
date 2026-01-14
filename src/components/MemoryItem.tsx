@@ -53,7 +53,10 @@ const typeColors: Record<MemoryType, string> = {
 
 const Item = styled.div`
   background: transparent;
-  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-left: none;
+  border-right: none;
+  border-top: 1px solid rgba(255, 255, 255, 0.12);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.12);
   border-radius: 0;
   padding: 14px;
   margin-bottom: 0;
@@ -182,7 +185,10 @@ export function MemoryItem({ memory, onClick }: MemoryItemProps) {
         <DateText>{formatDate(createdAt)}</DateText>
       </Header>
       <Content>{memory.title || memory.content || "Без текста"}</Content>
-      {memory.mediaType && (
+      {(memory.mediaType ||
+        memory.type === "link" ||
+        memory.openTelegramUrl ||
+        memory.url) && (
         <MediaIndicator>
           {memory.mediaType === "photo" && (
             <>
@@ -204,7 +210,10 @@ export function MemoryItem({ memory, onClick }: MemoryItemProps) {
               <FiMusic size={14} /> Музыка
             </>
           )}
-          {memory.mediaType === "link" && (
+          {(memory.mediaType === "link" ||
+            memory.type === "link" ||
+            !!memory.openTelegramUrl ||
+            !!memory.url) && (
             <>
               <FiLink size={14} /> Ссылка
             </>

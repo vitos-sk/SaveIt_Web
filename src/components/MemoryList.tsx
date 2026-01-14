@@ -23,7 +23,7 @@ const Container = styled.div<{ $isEmpty: boolean }>`
   overflow-y: auto;
   overflow-x: hidden;
   padding: 12px;
-  padding-top: 175px;
+  padding-top: 160px;
   padding-bottom: 20px;
   -webkit-overflow-scrolling: touch;
   touch-action: pan-y;
