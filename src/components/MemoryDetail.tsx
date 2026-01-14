@@ -361,31 +361,82 @@ export function MemoryDetail({ memory, onClose, onDelete }: MemoryDetailProps) {
   };
 
   const handleOpenInTelegram = () => {
-    const url = memory.url || memory.content;
-    if (!url) return;
+    const raw = (memory.url || memory.content || "").toString().trim();
+    if (!raw) return;
 
-    // Для деплоя: открываем только в Telegram и только Telegram-ссылки
+    // Mini App должен открываться внутри Telegram
     if (!window.Telegram?.WebApp) {
       setErrorText("Откройте приложение внутри Telegram");
       setIsErrorOpen(true);
       return;
     }
 
-    const isTelegramLink = /^https?:\/\/t\.me\//i.test(url);
-    if (!isTelegramLink) {
-      setErrorText("Эта ссылка откроется только в Telegram (t.me)");
-      setIsErrorOpen(true);
-      return;
+    const tg = window.Telegram.WebApp as any;
+
+    const normalizeUrl = (u: string) => {
+      const trimmed = u.trim();
+      if (/^https?:\/\//i.test(trimmed)) return trimmed;
+      if (/^tg:\/\//i.test(trimmed)) return trimmed;
+      if (/^t\.me\//i.test(trimmed)) return `https://${trimmed}`;
+      return trimmed;
+    };
+
+    const buildTgDeepLink = (u: string): string | null => {
+      // https://t.me/<username>/<postId>  -> tg://resolve?domain=<username>&post=<postId>
+      const mPost = u.match(/^https?:\/\/t\.me\/([A-Za-z0-9_]+)\/(\d+)(?:\?.*)?$/i);
+      if (mPost) {
+        const domain = mPost[1];
+        const postId = mPost[2];
+        return `tg://resolve?domain=${domain}&post=${postId}`;
+      }
+      // https://t.me/<username> -> tg://resolve?domain=<username>
+      const mDomain = u.match(/^https?:\/\/t\.me\/([A-Za-z0-9_]+)(?:\?.*)?$/i);
+      if (mDomain) {
+        return `tg://resolve?domain=${mDomain[1]}`;
+      }
+      return null;
+    };
+
+    const url = normalizeUrl(raw);
+    const deep = buildTgDeepLink(url);
+
+    // 1) Если есть deep-link для телеграм-поста/канала — пробуем открыть его (без браузера)
+    if (deep) {
+      try {
+        if (typeof tg.openTelegramLink === "function") {
+          tg.openTelegramLink(deep);
+          return;
+        }
+      } catch {
+        // ignore
+      }
+      // запасной вариант: открыть как обычную ссылку через Telegram
+      try {
+        if (typeof tg.openLink === "function") {
+          tg.openLink(deep);
+          return;
+        }
+      } catch {
+        // ignore
+      }
     }
 
-    const tg = window.Telegram.WebApp as any;
-    if (typeof tg.openTelegramLink === "function") {
-      tg.openTelegramLink(url);
-      return;
+    // 2) Для любых ссылок (t.me и внешних) — открываем через Telegram WebApp (внутри Telegram)
+    try {
+      if (typeof tg.openTelegramLink === "function" && /^https?:\/\/t\.me\//i.test(url)) {
+        tg.openTelegramLink(url);
+        return;
+      }
+    } catch {
+      // ignore
     }
-    if (typeof tg.openLink === "function") {
-      tg.openLink(url, { try_instant_view: false });
-      return;
+    try {
+      if (typeof tg.openLink === "function") {
+        tg.openLink(url, { try_instant_view: false });
+        return;
+      }
+    } catch {
+      // ignore
     }
 
     setErrorText("Не удалось открыть ссылку в Telegram");
