@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useMemo, useState, useEffect } from "react";
 import styled from "styled-components";
 import { getUserMemories } from "../services/firebaseService";
 import { Memory } from "../types";
@@ -97,6 +97,15 @@ export function DataViewer() {
 
   const telegramUser = getTelegramUser();
 
+  const counts = useMemo(() => {
+    const c: Partial<Record<MemoryType | "all", number>> = { all: memories.length };
+    for (const m of memories) {
+      const t = m.type as MemoryType;
+      c[t] = (c[t] || 0) + 1;
+    }
+    return c;
+  }, [memories]);
+
   useEffect(() => {
     loadMemories();
   }, []);
@@ -164,6 +173,7 @@ export function DataViewer() {
       </Header>
 
       {!error && <FilterBar filter={filter} onFilterChange={setFilter} />}
+      {!error && <FilterBar filter={filter} onFilterChange={setFilter} counts={counts} />}
 
       {error && <ErrorText>{error}</ErrorText>}
 

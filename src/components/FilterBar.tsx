@@ -25,13 +25,13 @@ const typeBorderColors: Record<MemoryType, string> = {
 const Container = styled.div`
   display: flex;
   gap: 8px;
-  padding: 12px 16px;
+  padding: 10px 14px;
   margin: 12px;
   background: rgba(57, 56, 56, 0.3);
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
   border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 20px;
+  border-radius: 18px;
   overflow-x: auto;
   overflow-y: hidden;
   scrollbar-width: none;
@@ -50,7 +50,7 @@ const Container = styled.div`
 const FilterButton = styled.button<{ $active: boolean }>`
   background: transparent;
   border: none;
-  padding: 8px 16px;
+  padding: 7px 14px;
   color: #ffffff;
   font-size: 14px;
   font-weight: 500;
@@ -77,11 +77,26 @@ const FilterButton = styled.button<{ $active: boolean }>`
 `;
 
 const Dot = styled.span<{ color: string }>`
-  width: 6px;
-  height: 6px;
+  width: 5px;
+  height: 5px;
   border-radius: 50%;
   background: ${(props) => props.color};
   flex-shrink: 0;
+`;
+
+const CountBadge = styled.span`
+  min-width: 18px;
+  height: 18px;
+  padding: 0 6px;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.9);
+  background: rgba(255, 255, 255, 0.12);
+  border: 1px solid rgba(255, 255, 255, 0.12);
 `;
 
 const filters: Array<{ value: MemoryType | "all"; label: string }> = [
@@ -99,9 +114,10 @@ const filters: Array<{ value: MemoryType | "all"; label: string }> = [
 interface FilterBarProps {
   filter: MemoryType | "all";
   onFilterChange: (filter: MemoryType | "all") => void;
+  counts?: Partial<Record<MemoryType | "all", number>>;
 }
 
-export function FilterBar({ filter, onFilterChange }: FilterBarProps) {
+export function FilterBar({ filter, onFilterChange, counts }: FilterBarProps) {
   const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -130,6 +146,7 @@ export function FilterBar({ filter, onFilterChange }: FilterBarProps) {
         >
           {value !== "all" && <Dot color={typeBorderColors[value as MemoryType]} />}
           {label}
+          {!!counts?.[value] && counts[value]! > 0 && <CountBadge>{counts[value]}</CountBadge>}
         </FilterButton>
       ))}
     </Container>
