@@ -106,7 +106,9 @@ export function MemoryList({
   onMemoryClick,
 }: MemoryListProps) {
   const filteredMemories: Memory[] =
-    filter === "all" ? memories : memories.filter((memory) => memory.type === filter);
+    filter === "all"
+      ? memories
+      : memories.filter((memory) => (memory.category || "note") === filter);
 
   if (loading) {
     return <LoadingText>Загрузка...</LoadingText>;

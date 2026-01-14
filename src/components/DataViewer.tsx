@@ -38,6 +38,7 @@ const Title = styled.h1`
   margin: 0;
   color: rgba(255, 255, 255, 0.95);
   text-align: center;
+  transform: translateY(5px);
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Roboto", "Oxygen", "Ubuntu",
     "Cantarell", "Fira Sans", "Droid Sans", "Helvetica Neue", sans-serif;
   -webkit-font-smoothing: antialiased;
@@ -100,7 +101,7 @@ export function DataViewer() {
   const counts = useMemo(() => {
     const c: Partial<Record<MemoryType | "all", number>> = { all: memories.length };
     for (const m of memories) {
-      const t = m.type as MemoryType;
+      const t = (m.category || "note") as MemoryType;
       c[t] = (c[t] || 0) + 1;
     }
     return c;
@@ -172,7 +173,6 @@ export function DataViewer() {
         <Title>SaveIt</Title>
       </Header>
 
-      {!error && <FilterBar filter={filter} onFilterChange={setFilter} />}
       {!error && <FilterBar filter={filter} onFilterChange={setFilter} counts={counts} />}
 
       {error && <ErrorText>{error}</ErrorText>}

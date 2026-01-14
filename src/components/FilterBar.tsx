@@ -146,7 +146,9 @@ export function FilterBar({ filter, onFilterChange, counts }: FilterBarProps) {
         >
           {value !== "all" && <Dot color={typeBorderColors[value as MemoryType]} />}
           {label}
-          {!!counts?.[value] && counts[value]! > 0 && <CountBadge>{counts[value]}</CountBadge>}
+          {!!counts?.[value] && counts[value]! > 0 && (
+            <CountBadge>{counts[value]}</CountBadge>
+          )}
         </FilterButton>
       ))}
     </Container>

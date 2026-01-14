@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { Memory } from "../types";
 import { MemoryType } from "./FilterBar";
 import styled from "styled-components";
-import { deleteLink } from "../services/firebaseService";
+import { deleteSavedItem } from "../services/firebaseService";
 import { FiCheck, FiExternalLink, FiLoader, FiTrash2, FiX } from "react-icons/fi";
 
 interface MemoryDetailProps {
@@ -348,7 +348,14 @@ export function MemoryDetail({ memory, onClose, onDelete }: MemoryDetailProps) {
     if (!memory || isDeleting) return;
     setIsDeleting(true);
     try {
-      await deleteLink(memory.id);
+      if (!memory.telegramId) {
+        setErrorText("Не удалось удалить: отсутствует telegramId");
+        setIsDeleteConfirmOpen(false);
+        setIsErrorOpen(true);
+        setIsDeleting(false);
+        return;
+      }
+      await deleteSavedItem(memory.telegramId, memory.id);
       if (onDelete) onDelete();
       closeAllDialogs();
       onClose();
@@ -361,9 +368,6 @@ export function MemoryDetail({ memory, onClose, onDelete }: MemoryDetailProps) {
   };
 
   const handleOpenInTelegram = () => {
-    const raw = (memory.url || memory.content || "").toString().trim();
-    if (!raw) return;
-
     // Mini App должен открываться внутри Telegram
     if (!window.Telegram?.WebApp) {
       setErrorText("Откройте приложение внутри Telegram");
@@ -373,73 +377,44 @@ export function MemoryDetail({ memory, onClose, onDelete }: MemoryDetailProps) {
 
     const tg = window.Telegram.WebApp as any;
 
-    const normalizeUrl = (u: string) => {
-      const trimmed = u.trim();
-      if (/^https?:\/\//i.test(trimmed)) return trimmed;
-      if (/^tg:\/\//i.test(trimmed)) return trimmed;
-      if (/^t\.me\//i.test(trimmed)) return `https://${trimmed}`;
-      return trimmed;
-    };
-
-    const buildTgDeepLink = (u: string): string | null => {
-      // https://t.me/<username>/<postId>  -> tg://resolve?domain=<username>&post=<postId>
-      const mPost = u.match(/^https?:\/\/t\.me\/([A-Za-z0-9_]+)\/(\d+)(?:\?.*)?$/i);
-      if (mPost) {
-        const domain = mPost[1];
-        const postId = mPost[2];
-        return `tg://resolve?domain=${domain}&post=${postId}`;
-      }
-      // https://t.me/<username> -> tg://resolve?domain=<username>
-      const mDomain = u.match(/^https?:\/\/t\.me\/([A-Za-z0-9_]+)(?:\?.*)?$/i);
-      if (mDomain) {
-        return `tg://resolve?domain=${mDomain[1]}`;
-      }
-      return null;
-    };
-
-    const url = normalizeUrl(raw);
-    const deep = buildTgDeepLink(url);
-
-    // 1) Если есть deep-link для телеграм-поста/канала — пробуем открыть его (без браузера)
-    if (deep) {
-      try {
+    // Новая структура: открываем конкретное сообщение по chatId + messageId
+    const chatId = memory.chatId;
+    const messageId = memory.messageId;
+    if (typeof chatId === "number" && typeof messageId === "number") {
+      // Каналы/группы: https://t.me/c/<internalId>/<messageId>
+      if (chatId < 0) {
+        const abs = Math.abs(chatId).toString();
+        const clean = abs.startsWith("100") ? abs.slice(3) : abs;
+        const link = `https://t.me/c/${clean}/${messageId}`;
+        if (typeof tg.openTelegramLink === "function") {
+          tg.openTelegramLink(link);
+          return;
+        }
+        if (typeof tg.openLink === "function") {
+          tg.openLink(link);
+          return;
+        }
+      } else {
+        // Приватные: tg://privatepost?chat=<chatId>&post=<messageId>
+        const deep = `tg://privatepost?chat=${chatId}&post=${messageId}`;
         if (typeof tg.openTelegramLink === "function") {
           tg.openTelegramLink(deep);
           return;
         }
-      } catch {
-        // ignore
-      }
-      // запасной вариант: открыть как обычную ссылку через Telegram
-      try {
         if (typeof tg.openLink === "function") {
           tg.openLink(deep);
           return;
         }
-      } catch {
-        // ignore
       }
     }
 
-    // 2) Для любых ссылок (t.me и внешних) — открываем через Telegram WebApp (внутри Telegram)
-    try {
-      if (typeof tg.openTelegramLink === "function" && /^https?:\/\/t\.me\//i.test(url)) {
-        tg.openTelegramLink(url);
-        return;
-      }
-    } catch {
-      // ignore
-    }
-    try {
-      if (typeof tg.openLink === "function") {
-        tg.openLink(url, { try_instant_view: false });
-        return;
-      }
-    } catch {
-      // ignore
+    // fallback: если есть url (для link-типа)
+    if (memory.url && typeof tg.openLink === "function") {
+      tg.openLink(memory.url, { try_instant_view: false });
+      return;
     }
 
-    setErrorText("Не удалось открыть ссылку в Telegram");
+    setErrorText("Нет данных для открытия (chatId/messageId)");
     setIsErrorOpen(true);
   };
 
@@ -466,7 +441,7 @@ export function MemoryDetail({ memory, onClose, onDelete }: MemoryDetailProps) {
     });
   };
 
-  const memoryType = (memory.type as MemoryType) || "note";
+  const memoryType = ((memory.category || "note") as MemoryType) || "note";
   const createdAt = memory.createdAt
     ? typeof memory.createdAt === "number"
       ? memory.createdAt > 10000000000
@@ -494,7 +469,7 @@ export function MemoryDetail({ memory, onClose, onDelete }: MemoryDetailProps) {
         >
           <HeaderLeft>
             <TypeBadge type={memoryType}>
-              {typeLabels[memoryType] || memory.type}
+              {typeLabels[memoryType] || memory.category}
             </TypeBadge>
           </HeaderLeft>
           <HeaderRight>

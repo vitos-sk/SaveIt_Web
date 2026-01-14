@@ -164,7 +164,7 @@ export function MemoryItem({ memory, onClick }: MemoryItemProps) {
     return dateObj.toLocaleDateString("ru-RU", { day: "numeric", month: "short" });
   };
 
-  const memoryType = (memory.type as MemoryType) || "note";
+  const memoryType = ((memory.category || "note") as MemoryType) || "note";
   const createdAt = memory.createdAt
     ? typeof memory.createdAt === "number"
       ? memory.createdAt > 10000000000
@@ -176,7 +176,9 @@ export function MemoryItem({ memory, onClick }: MemoryItemProps) {
   return (
     <Item onClick={onClick}>
       <Header>
-        <TypeBadge type={memoryType}>{typeLabels[memoryType] || memory.type}</TypeBadge>
+        <TypeBadge type={memoryType}>
+          {typeLabels[memoryType] || memory.category}
+        </TypeBadge>
         <DateText>{formatDate(createdAt)}</DateText>
       </Header>
       <Content>{memory.title || memory.content || "Без текста"}</Content>

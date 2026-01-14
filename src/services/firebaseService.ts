@@ -28,49 +28,32 @@ export async function getUserData(telegramId: number): Promise<UserData | null> 
 
 export async function getUserMemories(telegramId: number): Promise<Memory[]> {
   try {
-    // Сначала находим user_id по telegram_id
-    const usersRef = ref(database, "users");
-    const usersSnapshot = await get(usersRef);
+    // Новая структура: savedItems/{telegramId}/{itemId}
+    const savedRef = ref(database, `savedItems/${telegramId}`);
+    const snapshot = await get(savedRef);
 
-    let userKey: string | null = null;
-    if (usersSnapshot.exists()) {
-      const usersData = usersSnapshot.val();
-      // Ищем пользователя по telegram_id
-      for (const [key, userData] of Object.entries(usersData)) {
-        if ((userData as any).telegram_id === telegramId) {
-          userKey = key;
-          break;
-        }
-      }
-    }
-
-    if (!userKey) {
-      return [];
-    }
-
-    // Получаем все links из корня
-    const linksRef = ref(database, "links");
-    const linksSnapshot = await get(linksRef);
-
-    if (linksSnapshot.exists()) {
-      const linksData = linksSnapshot.val();
-      // Фильтруем links по user_id и преобразуем в массив
-      return Object.entries(linksData)
-        .filter(([, link]: [string, any]) => link.user_id === userKey)
-        .map(([linkId, link]: [string, any]) => ({
-          id: linkId,
-          type: link.content_type || "note",
-          content: link.url || "",
-          title: link.title || "",
-          createdAt: link.created_at || Date.now(),
-          url: link.url,
-          content_type: link.content_type,
-          ...link,
-        })) as Memory[];
+    if (snapshot.exists()) {
+      const itemsData = snapshot.val();
+      return Object.entries(itemsData).map(([itemId, item]: [string, any]) => ({
+        id: itemId,
+        telegramId,
+        // category = пользовательская категория (idea/task/...) для фильтра и бейджей
+        category: item.category || "note",
+        // type/mediaType = тип вложения (photo/document/...) для отображения медиа
+        type: item.type || item.mediaType || "other",
+        content: item.url || "",
+        title: item.title || "",
+        createdAt: item.createdAt || item.created_at || Date.now(),
+        chatId: item.chatId,
+        messageId: item.messageId,
+        mediaType: item.mediaType,
+        mediaFileId: item.mediaFileId,
+        ...item,
+      })) as Memory[];
     }
     return [];
   } catch (error) {
-    console.error("Error fetching user links:", error);
+    console.error("Error fetching user savedItems:", error);
     throw error;
   }
 }
@@ -111,6 +94,16 @@ export async function deleteLink(linkId: string): Promise<void> {
     await remove(linkRef);
   } catch (error) {
     console.error("Error deleting link:", error);
+    throw error;
+  }
+}
+
+export async function deleteSavedItem(telegramId: number, itemId: string): Promise<void> {
+  try {
+    const itemRef = ref(database, `savedItems/${telegramId}/${itemId}`);
+    await remove(itemRef);
+  } catch (error) {
+    console.error("Error deleting savedItem:", error);
     throw error;
   }
 }

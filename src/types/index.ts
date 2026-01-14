@@ -19,6 +19,7 @@ export interface UserData {
 export interface Memory {
   id: string;
   type: string;
+  category?: string;
   content: string;
   title?: string;
   createdAt: string | number;
@@ -26,10 +27,12 @@ export interface Memory {
   messageId?: number;
   mediaType?: string;
   mediaUrl?: string;
+  mediaFileId?: string;
   remindAt?: string;
   url?: string;
   content_type?: string;
   user_id?: string;
   created_at?: number;
+  telegramId?: number;
   [key: string]: any;
 }
