@@ -4,6 +4,31 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>SaveIt - Telegram Mini App</title>
+    <script>
+      // Suppress noisy Telegram WebApp debug logs printed before app boot
+      (function () {
+        function shouldSuppress(args) {
+          var first = args && args[0];
+          if (typeof first !== "string") return false;
+          return (
+            first.indexOf("[Telegram.WebView] > postEvent") === 0 ||
+            first.indexOf("[Telegram.WebApp] Method") === 0 ||
+            first.indexOf("WebAppMethodUnsupported") !== -1
+          );
+        }
+        function wrap(fn) {
+          return function () {
+            if (shouldSuppress(arguments)) return;
+            return fn.apply(console, arguments);
+          };
+        }
+        // Keep console.error intact (we want real errors)
+        console.log = wrap(console.log);
+        console.info = wrap(console.info);
+        console.debug = wrap(console.debug);
+        console.warn = wrap(console.warn);
+      })();
+    </script>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <style>
       html,
