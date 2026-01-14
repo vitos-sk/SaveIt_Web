@@ -1,5 +1,6 @@
 import { useEffect } from "react";
 import { DataViewer } from "./components/DataViewer";
+
 import { initTelegramWebApp } from "./utils/telegram";
 
 function App() {
