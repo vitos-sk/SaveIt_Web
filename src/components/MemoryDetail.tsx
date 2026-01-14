@@ -353,7 +353,6 @@ export function MemoryDetail({ memory, onClose, onDelete }: MemoryDetailProps) {
       closeAllDialogs();
       onClose();
     } catch (error) {
-      console.error("Ошибка при удалении:", error);
       setErrorText("Не удалось удалить сохраненку");
       setIsDeleteConfirmOpen(false);
       setIsErrorOpen(true);
@@ -365,46 +364,32 @@ export function MemoryDetail({ memory, onClose, onDelete }: MemoryDetailProps) {
     const url = memory.url || memory.content;
     if (!url) return;
 
-    // Всегда используем Telegram WebApp API для открытия ссылок
-    if (window.Telegram?.WebApp) {
-      const tg = window.Telegram.WebApp;
-
-      // Пробуем разные методы открытия ссылок в Telegram
-      try {
-        if (typeof tg.openLink === "function") {
-          tg.openLink(url, { try_instant_view: false });
-          return;
-        }
-
-        if (typeof (tg as any).openTelegramLink === "function") {
-          (tg as any).openTelegramLink(url);
-          return;
-        }
-
-        // Если методы недоступны, используем прямой вызов
-        if ((tg as any).openLink) {
-          (tg as any).openLink(url);
-          return;
-        }
-      } catch (error) {
-        console.error("Ошибка при открытии ссылки через Telegram API:", error);
-      }
+    // Для деплоя: открываем только в Telegram и только Telegram-ссылки
+    if (!window.Telegram?.WebApp) {
+      setErrorText("Откройте приложение внутри Telegram");
+      setIsErrorOpen(true);
+      return;
     }
 
-    // Fallback: если Telegram API недоступен, все равно пробуем открыть через Telegram
-    // Для Telegram ссылок используем специальный формат
-    if (url.startsWith("https://t.me/") || url.startsWith("http://t.me/")) {
-      // Открываем Telegram ссылку напрямую
-      window.location.href = url;
-    } else {
-      // Для других ссылок используем Telegram WebApp если доступен
-      if (window.Telegram?.WebApp?.openLink) {
-        window.Telegram.WebApp.openLink(url);
-      } else {
-        // Последний fallback - открываем в новой вкладке
-        window.open(url, "_blank");
-      }
+    const isTelegramLink = /^https?:\/\/t\.me\//i.test(url);
+    if (!isTelegramLink) {
+      setErrorText("Эта ссылка откроется только в Telegram (t.me)");
+      setIsErrorOpen(true);
+      return;
     }
+
+    const tg = window.Telegram.WebApp as any;
+    if (typeof tg.openTelegramLink === "function") {
+      tg.openTelegramLink(url);
+      return;
+    }
+    if (typeof tg.openLink === "function") {
+      tg.openLink(url, { try_instant_view: false });
+      return;
+    }
+
+    setErrorText("Не удалось открыть ссылку в Telegram");
+    setIsErrorOpen(true);
   };
 
   const formatDate = (date: Date | string | number) => {

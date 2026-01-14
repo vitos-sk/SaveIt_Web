@@ -37,7 +37,7 @@ const Container = styled.div`
   scrollbar-width: none;
   -ms-overflow-style: none;
   position: fixed;
-  top: 75px;
+  top: 85px;
   left: 0;
   right: 0;
   z-index: 99;

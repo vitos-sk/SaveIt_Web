@@ -23,7 +23,7 @@ const Container = styled.div<{ $isEmpty: boolean }>`
   overflow-y: auto;
   overflow-x: hidden;
   padding: 12px;
-  padding-top: 165px;
+  padding-top: 175px;
   padding-bottom: 20px;
   -webkit-overflow-scrolling: touch;
   touch-action: pan-y;
@@ -39,7 +39,7 @@ const Container = styled.div<{ $isEmpty: boolean }>`
 
 const EmptyState = styled.div`
   position: fixed;
-  top: calc(50% + 15px);
+  top: calc(50% + 25px);
   left: 50%;
   transform: translate(-50%, -50%);
   display: flex;
@@ -75,7 +75,7 @@ const EmptyText = styled.p`
 
 const LoadingText = styled.div`
   position: fixed;
-  top: calc(50% + 15px);
+  top: calc(50% + 25px);
   left: 50%;
   transform: translate(-50%, -50%);
   display: flex;

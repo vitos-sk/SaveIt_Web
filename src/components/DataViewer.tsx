@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import styled from "styled-components";
-import { getUserMemories, getUserData } from "../services/firebaseService";
+import { getUserMemories } from "../services/firebaseService";
 import { Memory } from "../types";
 import { getTelegramUser } from "../utils/telegram";
 import { FilterBar, MemoryType } from "./FilterBar";
@@ -21,7 +21,7 @@ const Container = styled.div`
 
 const Header = styled.div`
   position: fixed;
-  top: 15px;
+  top: 25px;
   left: 0;
   right: 0;
   background: transparent;
@@ -106,20 +106,13 @@ export function DataViewer() {
     setError(null);
 
     try {
+      if (!telegramUser) {
+        setError("Откройте приложение внутри Telegram");
+        return;
+      }
+
       const telegramId = telegramUser.id;
-
-      // Получаем все данные пользователя
-      const allUserData = await getUserData(telegramId);
-      console.log("=== ВСЕ ДАННЫЕ ПОЛЬЗОВАТЕЛЯ", telegramId, "===");
-      console.log(JSON.stringify(allUserData, null, 2));
-      console.log("==========================================");
-
-      // Получаем links
       const userMemories = await getUserMemories(telegramId);
-      console.log("=== LINKS ===");
-      console.log(`Всего links: ${userMemories.length}`);
-      console.log(JSON.stringify(userMemories, null, 2));
-      console.log("=============");
 
       // Сортируем по дате создания (новые сверху)
       const sortedMemories = userMemories.sort((a, b) => {
@@ -138,8 +131,7 @@ export function DataViewer() {
       });
       setMemories(sortedMemories);
     } catch (err: any) {
-      console.error("Ошибка загрузки данных:", err);
-      setError(err.message || "Ошибка загрузки данных");
+      setError(err?.message || "Ошибка загрузки данных");
     } finally {
       setLoading(false);
     }

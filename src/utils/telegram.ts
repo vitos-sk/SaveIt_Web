@@ -133,22 +133,13 @@ declare global {
   }
 }
 
-// Мок-данные для тестирования (ID Telegram канала пользователя)
-const MOCK_TELEGRAM_USER = {
-  id: 8510744654,
-  first_name: "vs",
-  username: "vs_cot",
-  language_code: "ru",
-  is_premium: false,
-};
-
 export function getTelegramUser() {
   // Если есть реальный Telegram WebApp, используем его
   if (window.Telegram?.WebApp?.initDataUnsafe?.user) {
     return window.Telegram.WebApp.initDataUnsafe.user;
   }
-  // Иначе используем мок-данные для тестирования
-  return MOCK_TELEGRAM_USER;
+  // Для деплоя: приложение должно открываться внутри Telegram
+  return null;
 }
 
 export function initTelegramWebApp() {
